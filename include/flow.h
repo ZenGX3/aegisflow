@@ -81,6 +81,7 @@ typedef struct {
 typedef struct {
     uint64_t     pkt_count;       /**< Number of packets in this direction */
     uint64_t     byte_count;      /**< Total bytes (payload) in this direction */
+    uint64_t     header_bytes;    /**< Total transport header bytes */
 
     WelfordState len_stats;       /**< Online mean/var for packet lengths */
     double       min_len;         /**< Minimum observed packet length */
@@ -92,6 +93,18 @@ typedef struct {
 
     struct timeval last_pkt_time; /**< Timestamp of last packet in this direction */
     int          has_last_pkt;    /**< Flag: 0 before first packet seen */
+    uint32_t     psh_count;       /**< PSH flags in this direction */
+    uint32_t     urg_count;       /**< URG flags in this direction */
+    uint32_t     act_data_pkts;   /**< Packets with payload in this direction */
+    uint32_t     min_seg_size;    /**< Minimum transport header size */
+    uint64_t     bulk_count;      /**< Completed bulk groups in this direction */
+    uint64_t     bulk_pkt_total;  /**< Packets across completed bulk groups */
+    uint64_t     bulk_byte_total; /**< Bytes across completed bulk groups */
+    double       bulk_duration_us;/** Duration across completed bulk groups */
+    uint64_t     cur_bulk_pkts;   /**< Current candidate bulk group packets */
+    uint64_t     cur_bulk_bytes;  /**< Current candidate bulk group bytes */
+    struct timeval cur_bulk_start;/** Current candidate bulk start */
+    double       last_len;        /**< Previous packet length in this direction */
 } DirectionStats;
 
 /* =========================================================================
@@ -133,9 +146,24 @@ typedef struct FlowRecord {
     uint32_t       fin_count;
     uint32_t       psh_count;
     uint32_t       urg_count;
+    uint32_t       cwr_count;
+    uint32_t       ece_count;
 
     /* ── Protocol (redundant copy for quick access) ── */
     uint8_t        protocol;
+
+    int32_t        init_fwd_win_bytes;
+    int32_t        init_bwd_win_bytes;
+
+    WelfordState   active_stats;
+    WelfordState   idle_stats;
+    double         min_active;
+    double         max_active;
+    double         min_idle;
+    double         max_idle;
+    struct timeval active_start;
+    struct timeval active_last;
+    int            active_initialized;
 
     /* ── uthash intrusive handle (must be last or at least after key) ── */
     UT_hash_handle hh;
@@ -150,6 +178,8 @@ typedef struct {
     uint32_t       payload_len;   /**< IP payload / transport data length */
     uint8_t        tcp_flags;     /**< TCP flags byte (0 for non-TCP) */
     uint8_t        is_fwd;        /**< 1 = forward direction, 0 = backward */
+    uint32_t       header_len;    /**< Transport header length in bytes */
+    uint16_t       tcp_window;    /**< TCP window size (0 for non-TCP) */
 } PacketInfo;
 
 /* =========================================================================
@@ -183,6 +213,7 @@ typedef struct {
     double   pkt_len_max;
     double   pkt_len_mean;
     double   pkt_len_std;
+    double   pkt_len_var;
 
     /* ── Rate features ── */
     double   flow_bytes_per_sec;
@@ -195,6 +226,8 @@ typedef struct {
     uint32_t fin_count;
     uint32_t psh_count;
     uint32_t urg_count;
+    uint32_t cwr_count;
+    uint32_t ece_count;
 
     /* ── Global IAT ── */
     double   flow_iat_mean;
@@ -219,12 +252,50 @@ typedef struct {
     double   fwd_iat_std;
     double   fwd_iat_min;
     double   fwd_iat_max;
+    double   fwd_iat_total;
 
     /* ── Backward IAT ── */
     double   bwd_iat_mean;
     double   bwd_iat_std;
     double   bwd_iat_min;
     double   bwd_iat_max;
+    double   bwd_iat_total;
+
+    double   flow_iat_total;
+    uint32_t fwd_psh_flags;
+    uint32_t bwd_psh_flags;
+    uint32_t fwd_urg_flags;
+    uint32_t bwd_urg_flags;
+    uint64_t fwd_header_len;
+    uint64_t bwd_header_len;
+    double   fwd_pkts_per_sec;
+    double   bwd_pkts_per_sec;
+    double   down_up_ratio;
+    double   pkt_size_avg;
+    double   fwd_seg_size_avg;
+    double   bwd_seg_size_avg;
+    double   fwd_bytes_per_bulk_avg;
+    double   fwd_packets_per_bulk_avg;
+    double   fwd_bulk_rate_avg;
+    double   bwd_bytes_per_bulk_avg;
+    double   bwd_packets_per_bulk_avg;
+    double   bwd_bulk_rate_avg;
+    uint64_t subflow_fwd_packets;
+    uint64_t subflow_fwd_bytes;
+    uint64_t subflow_bwd_packets;
+    uint64_t subflow_bwd_bytes;
+    int32_t  init_fwd_win_bytes;
+    int32_t  init_bwd_win_bytes;
+    uint32_t fwd_act_data_pkts;
+    uint32_t fwd_seg_size_min;
+    double   active_mean;
+    double   active_std;
+    double   active_max;
+    double   active_min;
+    double   idle_mean;
+    double   idle_std;
+    double   idle_max;
+    double   idle_min;
 } FlowFeatures;
 
 #ifdef __cplusplus

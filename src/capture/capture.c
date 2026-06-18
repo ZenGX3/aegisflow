@@ -123,8 +123,10 @@ static void pcap_callback(u_char *user,
         pkt.key.src_port  = tcph->th_sport;
         pkt.key.dst_port  = tcph->th_dport;
         pkt.tcp_flags     = tcph->th_flags & 0xFFu;
+        pkt.tcp_window    = ntohs(tcph->th_win);
 
         uint32_t tcp_hlen = (uint32_t)(tcph->th_off * 4u);
+        pkt.header_len = tcp_hlen;
         /* payload = IP total - IP header - TCP header */
         uint32_t ip_payload = (ip_total > ip_hlen) ? ip_total - ip_hlen : 0;
         pkt.payload_len  = (ip_payload > tcp_hlen) ? ip_payload - tcp_hlen : 0;
@@ -134,6 +136,7 @@ static void pcap_callback(u_char *user,
         pkt.key.src_port  = udph->uh_sport;
         pkt.key.dst_port  = udph->uh_dport;
         pkt.tcp_flags     = 0;
+        pkt.header_len    = UDP_HDR_LEN;
         /* UDP payload = total - IP hdr - UDP hdr */
         uint16_t udp_total = ntohs(udph->uh_ulen);
         pkt.payload_len  = (udp_total > UDP_HDR_LEN) ?
@@ -142,6 +145,7 @@ static void pcap_callback(u_char *user,
         pkt.key.src_port  = 0;
         pkt.key.dst_port  = 0;
         pkt.tcp_flags     = 0;
+        pkt.header_len    = 8;
         uint32_t ip_payload = (ip_total > ip_hlen) ? ip_total - ip_hlen : 0;
         pkt.payload_len  = (ip_payload > 8) ? ip_payload - 8 : 0;
     }

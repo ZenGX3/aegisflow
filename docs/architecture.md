@@ -102,7 +102,7 @@ For each arriving packet:
 2. Update direction `len_stats` (Welford) and min/max
 3. Compute IAT from `last_pkt_time`, update direction `iat_stats`
 4. Update global `pkt_len_stats` and `iat_stats`
-5. Increment TCP flag counters
+5. Increment TCP flag, header-length, active/idle, bulk, and window counters
 
 #### Feature Extraction (at export time)
 
@@ -129,8 +129,8 @@ Any new output backend (Kafka, gRPC, shared memory) implements this signature an
 
 #### CSV Exporter
 
-- Column order matches CICFlowMeter default
-- 44 columns total — directly usable as ML feature input
+- Column order follows the CICFlowMeter-style feature grouping
+- Full CICFlowMeter-style feature vector — directly usable as ML feature input
 - `csv_exporter_write_header()` writes the header once
 - Each `csv_exporter_write()` appends one data row
 
@@ -197,14 +197,14 @@ Contains 2× `DirectionStats` + 2× global `WelfordState` + TCP flag counters + 
 | Feature update | O(1) | Welford + simple arithmetic |
 | Feature extraction | O(1) | Single pass through state |
 | Flow expiry scan | O(N) | Linear scan, done infrequently |
-| JSON serialisation | O(F) | F = number of features (~44) |
-| CSV serialisation | O(F) | F = number of features (~44) |
+| JSON serialisation | O(F) | F = number of exported features |
+| CSV serialisation | O(F) | F = number of exported features |
 
 **Memory per flow:** ~600 bytes for `FlowRecord`. At 100,000 concurrent flows: ~60 MB.
 
 ---
 
-## Feature List (44 columns, CICFlowMeter-compatible)
+## Feature List (legacy 44-column subset; exporter now emits full CICFlowMeter-style vector)
 
 | # | Feature Name | Description |
 |---|---|---|

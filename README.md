@@ -16,7 +16,7 @@ AegisFlow is a production-grade, low-latency network flow feature extraction eng
 |---|---|
 | **Zero packet retention** | All statistics computed incrementally — no packet buffers |
 | **O(1) per-packet updates** | Welford's online algorithm for mean/variance |
-| **CICFlowMeter-compatible** | 44 features matching CICIDS2017 column names |
+| **CICFlowMeter-compatible** | Full CICFlowMeter-style feature vector matching CICIDS2017 column names |
 | **Bidirectional flows** | One `FlowRecord` per 5-tuple, fwd/bwd separated |
 | **Dual output** | JSON (NDJSON) and CSV simultaneously |
 | **Pluggable exporters** | `ExportFn` interface — Kafka producer is a one-file addition |
@@ -195,7 +195,7 @@ Memory     : ~6 MB / 10,000 flows
 
 ## CICFlowMeter Compatibility
 
-AegisFlow computes the same 44 statistical features as CICFlowMeter using the same:
+AegisFlow computes the full CICFlowMeter-style statistical feature vector using the same:
 - Population variance (÷N, not ÷(N-1))
 - Bidirectional flow model (first-seen direction = fwd)
 - TCP FIN/RST and timeout-based flow closure

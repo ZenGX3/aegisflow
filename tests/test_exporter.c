@@ -127,14 +127,15 @@ TEST(csv_header_and_data) {
 
     /* Read header */
     ASSERT_NOT_NULL(fgets(line, sizeof(line), fp));
-    ASSERT_TRUE(strstr(line, "src_ip") != NULL);
-    ASSERT_TRUE(strstr(line, "flow_duration") != NULL);
-    ASSERT_TRUE(strstr(line, "syn_flag_count") != NULL);
-    ASSERT_TRUE(strstr(line, "bwd_iat_max") != NULL);
+    ASSERT_TRUE(strstr(line, "Src IP") != NULL);
+    ASSERT_TRUE(strstr(line, "Flow Duration") != NULL);
+    ASSERT_TRUE(strstr(line, "SYN Flag Count") != NULL);
+    ASSERT_TRUE(strstr(line, "Idle Min") != NULL);
 
-    /* Count commas in header */
+    /* Count commas in header: 84 columns = 5 identifiers + 79 flow features */
     int header_commas = 0;
     for (char *p = line; *p; p++) if (*p == ',') header_commas++;
+    ASSERT_EQ(header_commas, 83);
 
     /* Read data row */
     ASSERT_NOT_NULL(fgets(line, sizeof(line), fp));

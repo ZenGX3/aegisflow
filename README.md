@@ -16,7 +16,7 @@ AegisFlow is a production-grade, low-latency network flow feature extraction eng
 |---|---|
 | **Zero packet retention** | All statistics computed incrementally — no packet buffers |
 | **O(1) per-packet updates** | Welford's online algorithm for mean/variance |
-| **CICFlowMeter-compatible** | 44 features matching CICIDS2017 column names |
+| **CICFlowMeter-compatible** | 79 flow features + 5 flow identifiers (84 CSV columns), CICIDS2017 column names |
 | **Bidirectional flows** | One `FlowRecord` per 5-tuple, fwd/bwd separated |
 | **Dual output** | JSON (NDJSON) and CSV simultaneously |
 | **Pluggable exporters** | `ExportFn` interface — Kafka producer is a one-file addition |
@@ -178,24 +178,31 @@ cmake --build build -j$(nproc)
 
 ## Performance
 
-Benchmark results on a typical modern workstation (8-core, 3.5 GHz):
+### End-to-end comparison vs CICFlowMeter (real PCAP)
+
+| Dataset | CICFlowMeter | AegisFlow | Speedup |
+|---|---|---|---|
+| ICS traffic PCAP, 2.27M packets, full CSV export | ~6.5k packets/sec | ~39k packets/sec | **6.1x** |
+
+This is the representative number: both tools read the same capture from disk, parse every packet and write the full CSV.
+
+### Synthetic microbenchmark (`bench_flow`)
+
+`./build/bench_flow 1000000 10000` feeds synthetic packets straight into the flow table and feature engine, **in memory, with no PCAP parsing or disk I/O**. It measures the core update path only and is not comparable to end-to-end tool throughput.
 
 ```
-Packets    : 1,000,000
-Flows      : 10,000 (synthetic)
-Throughput : ~2,800,000 packets/sec
-Latency    : ~360 ns/packet
-FlowRecord : ~600 bytes
-Memory     : ~6 MB / 10,000 flows
+Packets    : 1,000,000 (synthetic)
+Flows      : 10,000
+Throughput : ~6.9M packets/sec   (2-core cloud VM)
+Latency    : ~145 ns/packet
+FlowRecord : 800 bytes
 ```
-
-**Target: >100,000 packets/sec** — achieved by >25×.
 
 ---
 
 ## CICFlowMeter Compatibility
 
-AegisFlow computes the same 44 statistical features as CICFlowMeter using the same:
+AegisFlow computes 79 CICFlowMeter statistical features (84 columns including the 5-tuple identifiers) using the same:
 - Population variance (÷N, not ÷(N-1))
 - Bidirectional flow model (first-seen direction = fwd)
 - TCP FIN/RST and timeout-based flow closure

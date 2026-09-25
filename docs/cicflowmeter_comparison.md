@@ -1,31 +1,29 @@
 # Comparative Performance Report: AegisFlow vs. CICFlowMeter
 
-This report details the architectural and performance differences between **AegisFlow** (C17 implementation) and the original Java-based **CICFlowMeter**, showcasing the quantified improvements in throughput, latency, memory utilization, and real-time suitability.
+This report compares **AegisFlow** (C17) with **CICFlowMeter** on throughput and on the design choices behind it.
 
 ---
 
-## 1. Executive Summary
+## 1. Measured Results
 
-AegisFlow was designed as a production-grade, low-latency replacement for CICFlowMeter in real-time IDS/IPS environments. The comparison shows that AegisFlow outperforms the original tool by **orders of magnitude** across all key technical dimensions:
-
-| Metric | CICFlowMeter (Java) | AegisFlow (C) | Quantified Improvement |
+| Measurement | CICFlowMeter | AegisFlow | Result |
 | :--- | :--- | :--- | :--- |
-| **Throughput** | ~20,000 packets/sec | **8,454,783 packets/sec** | **422x faster** (~42,200% increase) |
-| **Per-Packet Latency** | ~50,000 to 200,000 ns | **118.3 ns** | **>420x to 1,600x reduction** |
-| **Memory Complexity** | \(O(P)\) per flow (retains packets) | **\(O(1)\) per flow** (no packet retention) | **Eliminates memory leakage** on long-lived flows |
-| **Peak Memory (1k flows)**| ~250 MB - 1 GB (JVM overhead) | **~1.4 MB** (total) | **>180x - 700x memory reduction** |
-| **Garbage Collection** | Frequent stop-the-world GC pauses | **Zero GC pauses** (deterministic memory) | **Eliminates packet drops** during GC |
-| **Streaming Pipeline** | Offline / Batch-oriented | **Real-time streaming** | Suitable for inline IDS/IPS deployment |
+| **End-to-end throughput** (ICS PCAP, 2.27M packets, full CSV export) | ~6.5k packets/sec | ~39k packets/sec | **6.1x faster** |
+| **Output schema** | 84 columns | 84 columns (5 identifiers + 79 flow features) | Drop-in compatible |
+
+The end-to-end run is the headline number: both tools read the same capture from disk, parse every packet and write the full feature CSV.
+
+**Synthetic microbenchmark (not a tool-vs-tool comparison).** `bench_flow` feeds synthetic packets directly into the flow table and feature engine in memory, with no PCAP parsing or disk I/O. It reaches ~6.9M packets/sec (~145 ns/packet) on a 2-core cloud VM. This isolates the per-packet update path and should not be compared against CICFlowMeter's end-to-end throughput.
 
 ---
 
 ## 2. Core Architectural Advantages
 
-The dramatic improvements are rooted in three major architectural differences:
+The throughput difference comes mainly from two design choices:
 
 ### A. Incremental Feature Extraction (Welford's vs. Buffering)
 - **CICFlowMeter (Java)** retains packet listings and IAT lists in memory for every active flow. To calculate statistics like standard deviation, mean, and variance, it performs multi-pass loop traversals over the collected packet arrays.
-- **AegisFlow (C)** stores **zero packets**. It maintains a constant-size `FlowRecord` (472 bytes) and updates statistics incrementally in **\(O(1)\) time** using **Welford's online algorithm** for mean and variance:
+- **AegisFlow (C)** stores **zero packets**. It maintains a constant-size `FlowRecord` (800 bytes) and updates statistics incrementally in **\(O(1)\) time** using **Welford's online algorithm** for mean and variance:
 
 ```mermaid
 graph TD
@@ -50,7 +48,7 @@ Memory per Flow (Bytes)
       │                          /
       │                         /
       │                        /
-  600 ┼───────────────────────/────────────────────── (AegisFlow: Flat 472B)
+  800 ┼───────────────────────/────────────────────── (AegisFlow: flat 800B)
       │
       └─────────────────────────────────────────────►
                                      Number of Packets
@@ -58,19 +56,7 @@ Memory per Flow (Bytes)
 
 ---
 
-## 3. Quantified Breakdown of Improved Features
+## 3. Other Design Differences
 
-### 1. Packet Processing Throughput
-- **CICFlowMeter**: Reaches CPU-bottlenecks quickly. Java object allocation overhead (instantiating standard classes for every packet) limits throughput to roughly **20,000 pkts/sec** on typical hardware.
-- **AegisFlow**: Reaches **8.45 Million pkts/sec**, processing packet frames almost at line-rate.
-
-### 2. Microsecond-level Latency
-- **CICFlowMeter**: Suffers from random latency spikes caused by Java's Garbage Collector runs and variable list reallocation times. Packets wait in queues while arrays are resized.
-- **AegisFlow**: Operates at a deterministic **118.3 nanoseconds (0.118 microseconds)** per packet.
-
-### 3. Real-Time Export Suitability
-- **CICFlowMeter**: Outputs flow statistics on application termination or dumps batches to CSV, creating write-bottlenecks.
-- **AegisFlow**: Employs an asynchronous, lock-free pluggable `ExporterChain` to output NDJSON or CSV instantly when a flow closes, making it directly integratable into real-time IDS/IPS engines and streaming pipelines (e.g., Apache Kafka).
-
-> [!IMPORTANT]
-> **Safety Feature**: AegisFlow includes built-in protection against division-by-zero, NaN, and infinity values (replacing them with `0.0` dynamically before export). The original Java implementation frequently crashed or output raw `NaN` strings, which broke downstream machine learning pipelines.
+- **Streaming export:** flows are written to CSV/NDJSON as soon as they close (FIN/RST or timeout) through a pluggable `ExporterChain`, instead of at the end of a batch run. Export is synchronous and single-threaded.
+- **Safe numerics:** division-by-zero, NaN and infinity values are replaced with `0.0` before export, so downstream ML pipelines never receive `NaN`/`Infinity` strings.

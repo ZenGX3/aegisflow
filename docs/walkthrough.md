@@ -63,7 +63,7 @@ Total Test time (real) = 0.12 sec
 
 ### Performance Benchmarks
 Running the benchmark shows outstanding results:
-- **Throughput**: **8,454,783 packets/sec** (Target: >100,000 packets/sec)
+- **Throughput (synthetic in-memory microbenchmark, no PCAP parsing or disk I/O)**: **8,454,783 packets/sec** (Target: >100,000 packets/sec)
 - **Average Latency**: **118.3 ns** per packet
 - **Memory Footprint**: ~1419.7 KB peak memory for 1,000 concurrent flows
 - **Target Achieved**: Successfully exceeded the performance requirements by a wide margin.

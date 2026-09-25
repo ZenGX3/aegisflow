@@ -44,6 +44,15 @@ void flow_record_init(FlowRecord *record,
     record->min_iat = DBL_MAX;
     record->max_iat = 0.0;
 
+    welford_init(&record->active_stats);
+    welford_init(&record->idle_stats);
+    record->min_active = DBL_MAX;
+    record->max_active = 0.0;
+    record->min_idle = DBL_MAX;
+    record->max_idle = 0.0;
+    record->init_fwd_win_bytes = -1;
+    record->init_bwd_win_bytes = -1;
+
     /* ── Directional stats init ── */
     direction_stats_init(&record->fwd);
     direction_stats_init(&record->bwd);
